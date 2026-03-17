@@ -91,37 +91,84 @@ sudo systemctl status mongod
 
 ## 3. Cấu hình cơ bản sau khi cài đặt
 
-File cấu hình chính (Config file) của MongoDB nằm tại đường dẫn: `/etc/mongod.conf`
+### 3.1. Tổng quan
 
-Để bảo mật và sử dụng, bạn cần mở chỉnh sửa file này (ví dụ dùng nano):
-```bash
-sudo nano /etc/mongod.conf
-```
+Sau khi cài đặt, MongoDB mặc định:
+- Chỉ lắng nghe tại `localhost` (`127.0.0.1`)
+- Không yêu cầu xác thực
 
-### 3.1. Cho phép kết nối từ xa qua mạng (Remote Access)
-Mặc định ngay sau khi cài, MongoDB cực kỳ an toàn vì chỉ lắng nghe kết nối ở thiết bị nội bộ cục bộ (localhost/127.0.0.1). 
-Tìm tới cấu hình kết nối mạng (`net:`) và chuyển đổi giá trị `bindIp` nếu bạn muốn ứng dụng từ Server khác (Client App) hoặc Tool quản lý (MongoDB Compass) kết nối được.
+Điều này:
+- An toàn trong môi trường local
+- Nhưng không thể dùng cho production hoặc hệ thống phân tán
 
+Do đó cần cấu hình lại file: `/etc/mongod.conf`
+
+### 3.2. Cấu hình mạng (Network Configuration)
+
+**a. Cấu hình**
 ```yaml
 net:
   port: 27017
-  bindIp: 127.0.0.1, <Nhập-IP-Private-Của-Máy-Này> 
-  
-  # Hoặc dùng bindIp: 0.0.0.0 để lắng nghe TẤT CẢ các dải mạng 
-  # (Lưu ý: Nếu dùng 0.0.0.0 CỰC KỲ KHUYẾN CÁO phải thiết lập tường lửa Firewall ufw/iptables chỉ mở Port 27017 cho đúng IP tĩnh của thiết bị Client)
+  bindIp: 127.0.0.1,<IP_NODE>
 ```
 
-### 3.2. Bật chế độ xác thực danh tính (Authentication/Login)
-Mặc định thì bất kỳ ai truy cập được vào Port 27017 từ bindIp trên đều lập tức có toàn quyền Admin mà không cần mật khẩu. Chúng ta bắt buộc phải bật chế độ Authorization trên môi trường ảo hóa thực tế.
+**b. Giải thích**
+* **port**
+  - Xác định cổng MongoDB sử dụng (mặc định: `27017`)
+  - Client sẽ kết nối qua: `mongodb://<IP>:27017`
+* **bindIp**
+  - Bản chất: Là danh sách địa chỉ mà MongoDB lắng nghe kết nối
+  - Phân tích từng giá trị:
+    - `127.0.0.1`: Chỉ cho phép truy cập nội bộ (local machine). Dùng cho: Debug, Admin trực tiếp trên server.
+    - `<IP_NODE>` (IP private của VM): Cho phép các máy khác trong cùng mạng nội bộ truy cập. Bắt buộc trong: Client-server architecture, Replica Set / Cluster.
+  - Cách hoạt động: MongoDB sẽ mở các socket (`127.0.0.1:27017` và `<IP_NODE>:27017`). Client kết nối tới IP nào → MongoDB phải listen tại IP đó.
 
-Kéo xuống phía dưới trong file `/etc/mongod.conf`, bỏ dấu comment `#` và thêm vào mục `security:`
+**c. Trường hợp đặc biệt: 0.0.0.0**
+```yaml
+bindIp: 0.0.0.0
+```
+- Ý nghĩa: Lắng nghe trên tất cả các network interface
+- Rủi ro: Mở toàn bộ hệ thống ra mọi mạng. Nếu có public IP → database bị expose.
+- Điều kiện bắt buộc nếu sử dụng: Phải có firewall giới hạn IP truy cập.
 
+### 3.3. Cấu hình bảo mật (Authentication)
+
+**a. Cấu hình**
 ```yaml
 security:
-  authorization: "enabled"
+  authorization: enabled
 ```
 
-Lưu file cấu hình và Khởi động lại (Restart) MongoDB service để áp dụng các thay đổi:
+**b. Ý nghĩa**
+Kích hoạt cơ chế:
+- Xác thực người dùng (Authentication)
+- Phân quyền (Authorization)
+
+**c. Cách hoạt động**
+Khi client kết nối:
+1. MongoDB yêu cầu đăng nhập.
+2. Client gửi `username/password`.
+3. MongoDB kiểm tra: Tài khoản hợp lệ, Quyền truy cập (role).
+4. Cho phép hoặc từ chối thao tác.
+
+**d. Nếu không bật**
+Bất kỳ ai truy cập được port đều có toàn quyền:
+- Đọc/ghi dữ liệu
+- Xóa database
+- Tạo user admin
+→ Đây là lỗi bảo mật nghiêm trọng.
+
+### 3.4. Cơ chế hoạt động tổng thể
+
+Quá trình kết nối tới MongoDB:
+- **Bước 1: Client gửi request** (`connect` → `10.0.0.5:27017`)
+- **Bước 2: Kiểm tra network**: MongoDB có bind IP này không? Firewall có cho phép không?
+- **Bước 3: Kiểm tra bảo mật**: Nếu `authorization = enabled` → yêu cầu đăng nhập.
+- **Bước 4: Truy cập hệ thống**: Nếu hợp lệ → cho phép thao tác. Nếu không → từ chối.
+
+### 3.5. Áp dụng cấu hình
+
+Sau khi chỉnh sửa file `/etc/mongod.conf`:
 ```bash
 sudo systemctl restart mongod
 ```
