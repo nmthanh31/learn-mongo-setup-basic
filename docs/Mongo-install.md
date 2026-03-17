@@ -145,7 +145,7 @@ net:
       - **Dùng cho**: Quản trị viên SSH trực tiếp vào server đó và gõ lệnh `mongosh`. Hoặc khi ứng dụng (Web server/API) chạy cùng trên một máy chủ vật lý/máy ảo với MongoDB.
     - `<IP_NODE>` (IP private của máy chủ - Card mạng LAN/VLAN):
       - **Bản chất**: Đây là địa chỉ IP được cấp phát cho card mạng (Network Interface) của máy chủ mongod nằm trong hệ thống mạng nội bộ. MongoDB sẽ gắn (bind) dịch vụ của nó vào card mạng này.
-      - **Cách hoạt động**: Khi khai báo IP này, MongoDB bắt đầu "lắng nghe" các yêu cầu kết nối từ các máy tính khác (có thể ping được tới `<IP_NODE>`) thông qua switch mạng ảo/thật.
+      - **Cách hoạt động**: Khi khai báo IP này, MongoDB bắt đầu lắng nghe các yêu cầu kết nối từ các máy tính khác (có thể ping được tới `<IP_NODE>`) thông qua switch mạng ảo/thật.
       - **Bắt buộc trong**:
         - **Kiến trúc Client-server**: Khi code ứng dụng Backend (App Server) nằm ở một máy chủ khác với máy chủ chạy Database (DB Server).
         - **Replica Set / Cluster**: Các node MongoDB (Primary, Secondary, Arbiter) nằm trên các máy ảo khác nhau bắt buộc cần giao tiếp với nhau qua IP Private mạng LAN.
